@@ -1,0 +1,16 @@
+# Gleam
+build/
+erl_crash.dump
+
+# Terraform
+infra/.terraform/
+infra/*.tfstate
+infra/*.tfstate.backup
+infra/*.tfvars
+!infra/*.tfvars.example
+
+# Worktrees
+.worktrees/
+
+# OS
+.DS_Store

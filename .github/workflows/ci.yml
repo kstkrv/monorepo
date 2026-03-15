@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "27"
+          gleam-version: "1.14.0"
+          rebar3-version: "3"
+
+      - name: Build and test shared
+        working-directory: apps/shared
+        run: |
+          gleam build
+          gleam test
+
+      - name: Build and test server
+        working-directory: apps/server
+        run: |
+          gleam build
+          gleam test
+
+      - name: Build and test client
+        working-directory: apps/client
+        run: |
+          gleam build
+          gleam test
