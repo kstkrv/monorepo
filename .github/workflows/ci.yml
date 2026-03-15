@@ -10,6 +10,10 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        package: [shared, server, client, orchestrator]
+
     steps:
       - uses: actions/checkout@v4
 
@@ -19,20 +23,8 @@ jobs:
           gleam-version: "1.14.0"
           rebar3-version: "3"
 
-      - name: Build and test shared
-        working-directory: apps/shared
-        run: |
-          gleam build
-          gleam test
-
-      - name: Build and test server
-        working-directory: apps/server
-        run: |
-          gleam build
-          gleam test
-
-      - name: Build and test client
-        working-directory: apps/client
+      - name: Build and test ${{ matrix.package }}
+        working-directory: apps/${{ matrix.package }}
         run: |
           gleam build
           gleam test
