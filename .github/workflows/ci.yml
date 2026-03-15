@@ -29,7 +29,7 @@ jobs:
           gleam build
           gleam test
 
-  e2e-app:
+  e2e:
     runs-on: ubuntu-latest
     needs: build-and-test
 
@@ -38,16 +38,21 @@ jobs:
 
       - name: Create Kind cluster
         uses: helm/kind-action@v1
+        with:
+          cluster_name: kind
 
       - name: Build Docker images
         run: |
           docker build -t monorepo:ci .
           docker build -t monorepo-e2e:ci -f apps/e2e/Dockerfile .
+          docker build -t monorepo-e2e-orchestrator:ci -f apps/orchestrator/Dockerfile.e2e .
 
       - name: Load images into Kind
-        run: kind load docker-image monorepo:ci monorepo-e2e:ci
+        run: kind load docker-image monorepo:ci monorepo-e2e:ci monorepo-e2e-orchestrator:ci
 
       - name: Deploy with Helm
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           helm install monorepo infra/helm/monorepo \
             --set image.repository=monorepo \
@@ -56,6 +61,11 @@ jobs:
             --set e2e.image.repository=monorepo-e2e \
             --set e2e.image.tag=ci \
             --set e2e.image.pullPolicy=Never \
+            --set orchestratorE2e.enabled=true \
+            --set orchestratorE2e.image.repository=monorepo-e2e-orchestrator \
+            --set orchestratorE2e.image.tag=ci \
+            --set orchestratorE2e.image.pullPolicy=Never \
+            --set orchestratorE2e.openrouterApiKey="$OPENROUTER_API_KEY" \
             --wait --timeout 120s
 
       - name: Collect logs on failure
@@ -65,24 +75,7 @@ jobs:
           kubectl logs -n monorepo -l app.kubernetes.io/name=monorepo --tail=100 || true
           echo "=== E2E logs ==="
           kubectl logs -n monorepo -l app.kubernetes.io/name=monorepo-e2e --tail=100 || true
+          echo "=== Orchestrator E2E logs ==="
+          kubectl logs -n monorepo -l app.kubernetes.io/name=monorepo-e2e-orchestrator --tail=100 || true
           echo "=== Pod status ==="
           kubectl get pods -n monorepo || true
-
-  e2e-orchestrator:
-    runs-on: ubuntu-latest
-    needs: build-and-test
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: erlef/setup-beam@v1
-        with:
-          otp-version: "27"
-          gleam-version: "1.14.0"
-          rebar3-version: "3"
-
-      - name: Run orchestrator e2e tests
-        working-directory: apps/orchestrator
-        env:
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-        run: gleam run -m e2e_test
