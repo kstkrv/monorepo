@@ -8,28 +8,39 @@ import orchestrator/tool.{Tool}
 import orchestrator/types.{AgentConfig, NetworkError, TextMessage, User}
 
 /// Run e2e tests manually: gleam run -m e2e_test
-/// Requires Ollama running locally.
+/// Uses OpenRouter if OPENROUTER_API_KEY is set, otherwise falls back to local Ollama.
 pub fn main() {
   orchestrator.init()
 
-  case check_ollama() {
+  let #(provider, model) = get_provider_and_model()
+
+  case check_provider(provider, model) {
     False -> {
-      io.println("SKIP: Ollama not available at localhost:11434")
+      io.println("SKIP: provider not available (" <> model <> ")")
     }
     True -> {
-      simple_chat_test()
-      tool_use_test()
+      simple_chat_test(provider, model)
+      tool_use_test(provider, model)
       io.println("\nAll e2e tests passed!")
     }
   }
 }
 
-fn check_ollama() -> Bool {
-  let provider = openai.ollama()
+@external(erlang, "orchestrator_env", "get_env")
+fn get_env(name: String) -> Result(String, Nil)
+
+fn get_provider_and_model() {
+  case get_env("OPENROUTER_API_KEY") {
+    Ok(key) -> #(openai.openrouter(key), "google/gemini-2.0-flash-001")
+    Error(_) -> #(openai.ollama(), "qwen2.5:3b")
+  }
+}
+
+fn check_provider(provider, model) -> Bool {
   let config =
     AgentConfig(
       system_prompt: "",
-      model: "qwen2.5:3b",
+      model: model,
       max_tokens: 1,
       temperature: Some(0.0),
       max_iterations: 1,
@@ -48,13 +59,12 @@ fn check_ollama() -> Bool {
   }
 }
 
-fn simple_chat_test() {
+fn simple_chat_test(provider, model) {
   io.println("\n--- simple_chat_test ---")
-  let provider = openai.ollama()
   let config =
     AgentConfig(
       system_prompt: "You are a helpful assistant. Be very brief.",
-      model: "qwen2.5:3b",
+      model: model,
       max_tokens: 128,
       temperature: Some(0.0),
       max_iterations: 1,
@@ -77,13 +87,12 @@ fn simple_chat_test() {
   orchestrator.stop(agent)
 }
 
-fn tool_use_test() {
+fn tool_use_test(provider, model) {
   io.println("\n--- tool_use_test ---")
-  let provider = openai.ollama()
   let config =
     AgentConfig(
       system_prompt: "You have access to tools. Use them when asked. Be very brief.",
-      model: "qwen2.5:3b",
+      model: model,
       max_tokens: 256,
       temperature: Some(0.0),
       max_iterations: 5,
