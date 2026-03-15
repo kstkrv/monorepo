@@ -68,14 +68,18 @@ jobs:
             --set orchestratorE2e.openrouterApiKey="$OPENROUTER_API_KEY" \
             --wait --timeout 120s
 
-      - name: Collect logs on failure
+      - name: E2E app test results
+        if: always()
+        run: kubectl logs -n monorepo -l app.kubernetes.io/name=monorepo-e2e --tail=200 || true
+
+      - name: Orchestrator E2E test results
+        if: always()
+        run: kubectl logs -n monorepo -l app.kubernetes.io/name=monorepo-e2e-orchestrator --tail=200 || true
+
+      - name: Collect debug logs on failure
         if: failure()
         run: |
           echo "=== App logs ==="
           kubectl logs -n monorepo -l app.kubernetes.io/name=monorepo --tail=100 || true
-          echo "=== E2E logs ==="
-          kubectl logs -n monorepo -l app.kubernetes.io/name=monorepo-e2e --tail=100 || true
-          echo "=== Orchestrator E2E logs ==="
-          kubectl logs -n monorepo -l app.kubernetes.io/name=monorepo-e2e-orchestrator --tail=100 || true
           echo "=== Pod status ==="
           kubectl get pods -n monorepo || true
