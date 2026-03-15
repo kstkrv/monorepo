@@ -28,3 +28,62 @@ jobs:
         run: |
           gleam build
           gleam test
+
+  e2e-app:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create Kind cluster
+        uses: helm/kind-action@v1
+
+      - name: Build Docker images
+        run: |
+          docker build -t monorepo:ci .
+          docker build -t monorepo-e2e:ci -f apps/e2e/Dockerfile .
+
+      - name: Load images into Kind
+        run: kind load docker-image monorepo:ci monorepo-e2e:ci
+
+      - name: Deploy with Helm
+        run: |
+          helm install monorepo infra/helm/monorepo \
+            --set image.repository=monorepo \
+            --set image.tag=ci \
+            --set image.pullPolicy=Never \
+            --set e2e.image.repository=monorepo-e2e \
+            --set e2e.image.tag=ci \
+            --set e2e.image.pullPolicy=Never \
+            --wait --timeout 120s
+
+      - name: Collect logs on failure
+        if: failure()
+        run: |
+          echo "=== App logs ==="
+          kubectl logs -n monorepo -l app.kubernetes.io/name=monorepo --tail=100 || true
+          echo "=== E2E logs ==="
+          kubectl logs -n monorepo -l app.kubernetes.io/name=monorepo-e2e --tail=100 || true
+          echo "=== Pod status ==="
+          kubectl get pods -n monorepo || true
+
+  e2e-orchestrator:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: ${{ secrets.OPENROUTER_API_KEY != '' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "27"
+          gleam-version: "1.14.0"
+          rebar3-version: "3"
+
+      - name: Run orchestrator e2e tests
+        working-directory: apps/orchestrator
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: gleam run -m e2e_test
