@@ -71,7 +71,6 @@ jobs:
   e2e-orchestrator:
     runs-on: ubuntu-latest
     needs: build-and-test
-    if: ${{ secrets.OPENROUTER_API_KEY != '' }}
 
     steps:
       - uses: actions/checkout@v4
