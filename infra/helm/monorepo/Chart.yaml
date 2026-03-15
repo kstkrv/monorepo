@@ -1,0 +1,6 @@
+apiVersion: v2
+name: monorepo
+description: Gleam fullstack monorepo application
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
