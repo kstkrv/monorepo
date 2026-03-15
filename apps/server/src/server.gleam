@@ -3,6 +3,7 @@ import gleam/erlang/process
 import gleam/http/request.{type Request}
 import gleam/http/response.{type Response}
 import mist.{type Connection, type ResponseData}
+import shared
 
 pub fn main() {
   let assert Ok(_) =
@@ -14,38 +15,32 @@ pub fn main() {
   process.sleep_forever()
 }
 
-fn handler(req: Request(Connection)) -> Response(ResponseData) {
-  case request.path_segments(req) {
-    ["client.mjs"] -> serve_js()
-    _ -> serve_html()
+pub fn handler(req: Request(Connection)) -> Response(ResponseData) {
+  case shared.route(request.path_segments(req)) {
+    shared.ClientJs -> serve_js()
+    shared.Html -> serve_html()
   }
 }
 
-fn serve_html() -> Response(ResponseData) {
-  let body =
-    "<!DOCTYPE html>
-<html lang=\"en\">
-<head>
-  <meta charset=\"UTF-8\">
-  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
-  <title>Hello World</title>
-</head>
-<body>
-  <div id=\"app\"></div>
-  <script type=\"module\" src=\"/client.mjs\"></script>
-</body>
-</html>"
-
+pub fn serve_html() -> Response(ResponseData) {
   response.new(200)
-  |> response.set_header("content-type", "text/html; charset=utf-8")
-  |> response.set_body(mist.Bytes(bytes_tree.from_string(body)))
+  |> response.set_header(
+    "content-type",
+    shared.content_type(shared.Html),
+  )
+  |> response.set_body(
+    mist.Bytes(bytes_tree.from_string(shared.html_template())),
+  )
 }
 
-fn serve_js() -> Response(ResponseData) {
+pub fn serve_js() -> Response(ResponseData) {
   case read_client_js() {
     Ok(js) ->
       response.new(200)
-      |> response.set_header("content-type", "application/javascript")
+      |> response.set_header(
+        "content-type",
+        shared.content_type(shared.ClientJs),
+      )
       |> response.set_body(mist.Bytes(bytes_tree.from_string(js)))
     Error(_) ->
       response.new(404)
@@ -54,4 +49,4 @@ fn serve_js() -> Response(ResponseData) {
 }
 
 @external(erlang, "server_ffi", "read_client_js")
-fn read_client_js() -> Result(String, Nil)
+pub fn read_client_js() -> Result(String, Nil)
