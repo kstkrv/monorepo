@@ -142,7 +142,7 @@ type TelegramUpdate {
   )
 }
 
-type MessageEntity {
+pub type MessageEntity {
   MessageEntity(entity_type: String, offset: Int, length: Int)
 }
 
@@ -338,7 +338,7 @@ fn maybe_insert(
   }
 }
 
-fn is_allowed(allow_from: List(String), sender_id: String) -> Bool {
+pub fn is_allowed(allow_from: List(String), sender_id: String) -> Bool {
   case allow_from {
     [] -> False
     _ ->
@@ -355,7 +355,7 @@ fn is_allowed(allow_from: List(String), sender_id: String) -> Bool {
   }
 }
 
-fn should_process(
+pub fn should_process(
   config: TelegramConfig,
   bot_username: Option(String),
   chat_type: String,
