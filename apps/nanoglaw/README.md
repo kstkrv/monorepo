@@ -1,6 +1,6 @@
 # nanoglaw
 
-A BEAM-native LLM agent bot written in [Gleam](https://gleam.run), with Telegram integration. Think of it as [nanobot](https://github.com/kstkrv/nanobot) rebuilt from scratch to leverage OTP actors, message passing, and the Erlang runtime.
+A BEAM-native LLM agent bot written in [Gleam](https://gleam.run), with Telegram integration. Think of it as [nanobot](https://github.com/HKUDS/nanobot) rebuilt from scratch to leverage OTP actors, message passing, and the Erlang runtime.
 
 nanoglaw runs an agentic loop — it calls an LLM, executes any requested tools, feeds the results back, and repeats until the model is done — all coordinated through a tree of OTP actors.
 
