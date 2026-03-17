@@ -87,8 +87,8 @@ Maintains two independent queues (inbound and outbound), each with a **waiter li
 // Non-blocking publish
 bus.publish_inbound(bus_subject, msg)
 
-// Blocking consume (with timeout in ms)
-let assert Ok(msg) = bus.consume_inbound(bus_subject, 5000)
+// Blocking consume (waits forever until a message is available)
+let msg = bus.consume_inbound(bus_subject)
 ```
 
 **`nanoglaw/bus/events`** — Event types:
@@ -208,7 +208,7 @@ Features:
 
 ### JSON compatibility
 
-**`nanoglaw/json_compat`** — Wraps [thoas](https://hex.pm/packages/thoas) for JSON decoding. This exists because `gleam_json` v3's `json.parse()` requires OTP 27+, but nanoglaw targets OTP 25+. The wrapper calls `thoas:decode/1` via Erlang FFI, then pipes the result through Gleam's `decode.run()`.
+**`nanoglaw/json_compat`** — Thin convenience wrapper around `gleam_json`'s `json.parse()` that normalises the error type to `Result(t, Nil)` for simpler call sites.
 
 ### Erlang FFI
 
@@ -224,7 +224,7 @@ All configuration is via environment variables:
 |---|---|---|
 | `NANOGLAW_API_KEY` | *(required)* | API key for the LLM provider |
 | `NANOGLAW_API_BASE` | `https://openrouter.ai/api/v1` | Base URL for the OpenAI-compatible API |
-| `NANOGLAW_MODEL` | `anthropic/claude-sonnet-4-20250514` | Model identifier |
+| `NANOGLAW_MODEL` | `anthropic/claude-sonnet-4.6` | Model identifier |
 | `NANOGLAW_SYSTEM_PROMPT` | Built-in default | System prompt for the agent |
 | `NANOGLAW_MAX_TOKENS` | `8192` | Maximum tokens in LLM response |
 | `NANOGLAW_MAX_ITERATIONS` | `20` | Maximum agentic loop iterations per message |
@@ -276,11 +276,16 @@ cd apps/nanoglaw && gleam run
 cd apps/nanoglaw && gleam test
 ```
 
-The test suite covers:
-- **Bus** — publish/consume for both inbound and outbound queues
-- **Session** — get_or_create, append + history retrieval, clear
-- **Events** — session key derivation from inbound messages
-- **Provider** — OpenAI response parsing for text responses and tool call responses
+43 tests covering:
+- **Bus** — publish/consume for both queues, waiter pattern (blocking consumer before publish)
+- **Session** — get_or_create, append + history, clear, multiple keys, nonexistent key
+- **Events** — session key derivation
+- **Tools** — execute known/unknown, find, echo (valid + invalid args), current_time
+- **Provider** — response parsing: text, tool calls, empty choices, invalid JSON, max tokens
+- **JSON compat** — parse valid/invalid JSON
+- **Telegram allowlist** — wildcard, user ID, username, compound ID, denied, empty list, multiple entries
+- **Telegram group policy** — private chat, open policy, mention with entity, no mention, no bot username, supergroup, mention in text
+- **Agent** — normal message flow, /new command, /help command, tool call loop, history persistence, provider error handling
 
 All tests are pure and fast — no network calls, no external dependencies.
 
@@ -333,10 +338,6 @@ That's it. The agent will automatically include the tool in LLM requests and exe
 
 The `telega` Gleam library (v0.15.0) causes a compiler segfault with Gleam 1.14.0. Rather than pin to an older compiler or wait for a fix, nanoglaw implements Telegram integration directly via `gleam_httpc` — it's ~200 lines of straightforward HTTP calls and JSON decoding, giving full control over polling behaviour and error handling.
 
-### Why `json_compat` instead of `gleam_json`'s parser?
-
-`gleam_json` v3's `json.parse()` calls `gleam_json_ffi:decode`, which uses the Erlang `json` module — only available in OTP 27+. Since this project targets OTP 25+, nanoglaw uses a thin wrapper around [thoas](https://hex.pm/packages/thoas) (a pure-Erlang JSON library already pulled in by `gleam_json` for encoding). Encoding still goes through `gleam_json` as normal.
-
 ### Why a message bus instead of direct actor messaging?
 
 The bus decouples channels from the agent. Channels don't need to know about the agent, and the agent doesn't need to know about channels. This makes it trivial to add new channels — just publish `InboundMessage` to the bus and subscribe to `OutboundMessage`. The waiter pattern inside the bus gives efficient blocking consumption without polling.
@@ -368,8 +369,8 @@ Gleam doesn't have traits or interfaces. The record-of-functions pattern (`Provi
 | `gleam_erlang` | Erlang interop (process, subject) |
 | `gleam_http` | HTTP types |
 | `gleam_httpc` | HTTP client |
-| `gleam_json` | JSON encoding |
-| `thoas` | JSON decoding (OTP 25+ compatible) |
+| `gleam_json` | JSON encoding and decoding |
+| `thoas` | JSON library (transitive dependency of gleam_json) |
 | `envoy` | Environment variable access |
 | `simplifile` | File system access |
 | `gleeunit` | Test framework (dev) |
