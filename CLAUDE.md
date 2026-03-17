@@ -49,3 +49,7 @@ CI runs `gleam build && gleam test` for shared, server, client, and orchestrator
 - Helm chart in `infra/helm/monorepo/` with templates for namespace, deployment, service, ingress, and e2e test job
 - ArgoCD watches main branch and auto-syncs with self-heal and prune enabled
 - `docker compose up` for local development (builds and runs on port 8080)
+
+## Commits
+
+- Never add Co-Authored-By lines to commit messages
